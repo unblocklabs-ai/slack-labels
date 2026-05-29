@@ -4,9 +4,21 @@
   "description": "OpenClaw plugin that labels persisted Slack user messages with sender identity.",
   "type": "module",
   "license": "MIT",
+  "author": "Unblock Labs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unblocklabs-ai/slack-labels.git"
+  },
+  "homepage": "https://github.com/unblocklabs-ai/slack-labels#readme",
+  "bugs": {
+    "url": "https://github.com/unblocklabs-ai/slack-labels/issues"
+  },
   "main": "./dist/index.js",
   "exports": {
     ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist",
@@ -16,6 +28,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test tests/**/*.test.ts",
     "check:runtime": "npm run build && npm run typecheck && npm test",
@@ -43,7 +56,7 @@
     }
   },
   "devDependencies": {
-    "@openclaw/plugin-inspector": "^0.3.10",
+    "@openclaw/plugin-inspector": "^0.3.11",
     "@types/node": "^24.6.0",
     "openclaw": "2026.5.3",
     "tsx": "^4.20.6",
@@ -58,12 +71,17 @@
       "minGatewayVersion": ">=2026.5.3"
     },
     "install": {
+      "clawhubSpec": "clawhub:@unblocklabs/slack-labels",
       "npmSpec": "@unblocklabs/slack-labels",
-      "defaultChoice": "npm",
+      "defaultChoice": "clawhub",
       "minHostVersion": ">=2026.5.3"
     },
+    "build": {
+      "openclawVersion": "2026.5.3",
+      "pluginSdkVersion": "2026.5.3"
+    },
     "release": {
-      "publishToClawHub": false,
+      "publishToClawHub": true,
       "publishToNpm": true
     }
   }

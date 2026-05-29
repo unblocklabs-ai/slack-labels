@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish package
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: "@unblocklabs/slack-labels"
+      CLAWHUB_OWNER: "unblocklabs"
+      CLAWHUB_CONFIG_PATH: "${{ runner.temp }}/clawhub-config.json"
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate release inputs
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { readFileSync } from "node:fs";
+
+          const tag = process.env.GITHUB_REF_NAME;
+          const tagMatch = /^v(\d+\.\d+\.\d+)$/.exec(tag ?? "");
+          if (!tagMatch) {
+            throw new Error(`Release tag must match vX.Y.Z, got ${tag}`);
+          }
+
+          const expectedVersion = tagMatch[1];
+          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+          const manifest = JSON.parse(readFileSync("openclaw.plugin.json", "utf8"));
+
+          if (pkg.version !== expectedVersion) {
+            throw new Error(`package.json version ${pkg.version} does not match tag ${tag}`);
+          }
+
+          if (manifest.version !== expectedVersion) {
+            throw new Error(`openclaw.plugin.json version ${manifest.version} does not match tag ${tag}`);
+          }
+
+          try {
+            const published = execFileSync(
+              "npm",
+              ["view", `${pkg.name}@${expectedVersion}`, "version", "--json"],
+              { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+            ).trim();
+            if (published) {
+              throw new Error(`${pkg.name}@${expectedVersion} is already published on npm`);
+            }
+          } catch (error) {
+            const stderr = String(error.stderr ?? "");
+            if (!stderr.includes("E404")) {
+              throw error;
+            }
+          }
+          NODE
+
+      - name: Run preflight
+        run: npm run preflight
+
+      - name: Pack release artifact
+        id: pack
+        run: |
+          PACK_JSON="$(npm pack --json --ignore-scripts)"
+          TARBALL="$(node --input-type=module -e 'const data = JSON.parse(process.argv[1]); console.log(data[0].filename)' "$PACK_JSON")"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to ClawHub
+        run: |
+          test -n "$CLAWHUB_TOKEN"
+          npm exec --yes clawhub@0.18.0 -- login --token "$CLAWHUB_TOKEN"
+          npm exec --yes clawhub@0.18.0 -- whoami
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+
+      - name: Publish to ClawHub
+        run: |
+          npm exec --yes clawhub@0.18.0 -- package publish "${{ steps.pack.outputs.tarball }}" --family code-plugin --owner "$CLAWHUB_OWNER" --json
+
+      - name: Verify ClawHub status
+        run: |
+          set +e
+          npm exec --yes clawhub@0.18.0 -- package inspect "$PACKAGE_NAME" --version "${GITHUB_REF_NAME#v}" --json
+          INSPECT_STATUS=$?
+          npm exec --yes clawhub@0.18.0 -- package moderation-status "$PACKAGE_NAME" --json
+          MODERATION_STATUS=$?
+          set -e
+
+          if [ "$INSPECT_STATUS" -ne 0 ]; then
+            echo "ClawHub package inspect did not find a public installable release yet. This can be expected while automated security review keeps the new release hidden."
+          fi
+
+          if [ "$INSPECT_STATUS" -ne 0 ] && [ "$MODERATION_STATUS" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Publish to npm
+        if: env.NPM_TOKEN != ''
+        run: npm publish "${{ steps.pack.outputs.tarball }}" --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+
+      - name: Verify npm publish
+        if: env.NPM_TOKEN != ''
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { readFileSync } from "node:fs";
+
+          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+          const published = JSON.parse(execFileSync(
+            "npm",
+            ["view", `${pkg.name}@${pkg.version}`, "version", "--json"],
+            { encoding: "utf8" },
+          ));
+
+          if (published !== pkg.version) {
+            throw new Error(`Expected npm version ${pkg.version}, got ${published}`);
+          }
+          NODE
+
+      - name: Skip npm publish
+        if: env.NPM_TOKEN == ''
+        run: echo "NPM_TOKEN is not configured; skipping npm publish."
