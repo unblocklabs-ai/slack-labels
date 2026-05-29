@@ -32,7 +32,7 @@
     "attribution"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19.0"
   },
   "peerDependencies": {
     "openclaw": ">=2026.5.3"
@@ -43,9 +43,9 @@
     }
   },
   "devDependencies": {
-    "@openclaw/plugin-inspector": "file:../helpers/plugin-inspector",
+    "@openclaw/plugin-inspector": "^0.3.10",
     "@types/node": "^24.6.0",
-    "openclaw": "file:../../openclaw",
+    "openclaw": "2026.5.3",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
