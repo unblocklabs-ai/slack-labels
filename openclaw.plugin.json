@@ -1,0 +1,19 @@
+{
+  "id": "slack-labels",
+  "name": "Slack Labels",
+  "version": "0.1.0",
+  "description": "Labels persisted Slack user messages with sender identity before they become future model history.",
+  "activation": {
+    "onStartup": true,
+    "onChannels": [
+      "slack"
+    ],
+    "onCapabilities": [
+      "hook"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false
+  }
+}

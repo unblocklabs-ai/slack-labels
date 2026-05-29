@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "plugin": {
+    "id": "slack-labels",
+    "priority": "high",
+    "seams": [
+      "plugin-runtime"
+    ],
+    "sourceRoot": "src",
+    "expect": {
+      "hooks": [
+        "message_received",
+        "before_message_write"
+      ]
+    }
+  },
+  "capture": {
+    "mockSdk": true
+  }
+}

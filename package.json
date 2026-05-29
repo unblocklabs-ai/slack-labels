@@ -1,0 +1,70 @@
+{
+  "name": "@unblocklabs/slack-labels",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin that labels persisted Slack user messages with sender identity.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "openclaw.plugin.json",
+    "plugin-inspector.config.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "check:runtime": "npm run build && npm run typecheck && npm test",
+    "plugin:inspect": "plugin-inspector check --config plugin-inspector.config.json --no-openclaw",
+    "plugin:inspect:runtime": "plugin-inspector check --config plugin-inspector.config.json --no-openclaw --runtime --mock-sdk --allow-execute",
+    "pack:check": "npm pack --dry-run",
+    "preflight": "npm run check:runtime && npm run plugin:inspect && npm run plugin:inspect:runtime && npm run pack:check"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "slack",
+    "transcript",
+    "attribution"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.3"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@openclaw/plugin-inspector": "file:../helpers/plugin-inspector",
+    "@types/node": "^24.6.0",
+    "openclaw": "file:../../openclaw",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.5.3",
+      "minGatewayVersion": ">=2026.5.3"
+    },
+    "install": {
+      "npmSpec": "@unblocklabs/slack-labels",
+      "defaultChoice": "npm",
+      "minHostVersion": ">=2026.5.3"
+    },
+    "release": {
+      "publishToClawHub": false,
+      "publishToNpm": true
+    }
+  }
+}
