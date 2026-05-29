@@ -57,21 +57,6 @@ jobs:
             throw new Error(`openclaw.plugin.json version ${manifest.version} does not match tag ${tag}`);
           }
 
-          try {
-            const published = execFileSync(
-              "npm",
-              ["view", `${pkg.name}@${expectedVersion}`, "version", "--json"],
-              { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-            ).trim();
-            if (published) {
-              throw new Error(`${pkg.name}@${expectedVersion} is already published on npm`);
-            }
-          } catch (error) {
-            const stderr = String(error.stderr ?? "");
-            if (!stderr.includes("E404")) {
-              throw error;
-            }
-          }
           NODE
 
       - name: Run preflight
@@ -84,8 +69,28 @@ jobs:
           TARBALL="$(node --input-type=module -e 'const data = JSON.parse(process.argv[1]); console.log(data[0].filename)' "$PACK_JSON")"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to npm
+      - name: Check npm publish status
+        id: npm_status
         if: env.NPM_TOKEN != ''
+        run: |
+          set +e
+          PUBLISHED_VERSION="$(npm view "$PACKAGE_NAME@${GITHUB_REF_NAME#v}" version --json 2>/tmp/npm-view-error.log)"
+          NPM_VIEW_STATUS=$?
+          set -e
+
+          if [ "$NPM_VIEW_STATUS" -eq 0 ] && [ "$PUBLISHED_VERSION" = "\"${GITHUB_REF_NAME#v}\"" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$PACKAGE_NAME@${GITHUB_REF_NAME#v} is already published on npm; skipping npm publish."
+          elif grep -q "E404" /tmp/npm-view-error.log; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "$PACKAGE_NAME@${GITHUB_REF_NAME#v} is not published on npm yet."
+          else
+            cat /tmp/npm-view-error.log >&2
+            exit "$NPM_VIEW_STATUS"
+          fi
+
+      - name: Publish to npm
+        if: env.NPM_TOKEN != '' && steps.npm_status.outputs.publish == 'true'
         run: npm publish "${{ steps.pack.outputs.tarball }}" --access public
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
@@ -96,16 +101,31 @@ jobs:
           node --input-type=module <<'NODE'
           import { execFileSync } from "node:child_process";
           import { readFileSync } from "node:fs";
+          import { setTimeout as sleep } from "node:timers/promises";
 
           const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-          const published = JSON.parse(execFileSync(
-            "npm",
-            ["view", `${pkg.name}@${pkg.version}`, "version", "--json"],
-            { encoding: "utf8" },
-          ));
 
-          if (published !== pkg.version) {
-            throw new Error(`Expected npm version ${pkg.version}, got ${published}`);
+          for (let attempt = 1; attempt <= 12; attempt += 1) {
+            try {
+              const published = JSON.parse(execFileSync(
+                "npm",
+                ["view", `${pkg.name}@${pkg.version}`, "version", "--json"],
+                { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+              ));
+
+              if (published !== pkg.version) {
+                throw new Error(`Expected npm version ${pkg.version}, got ${published}`);
+              }
+
+              process.exit(0);
+            } catch (error) {
+              if (attempt === 12) {
+                throw error;
+              }
+
+              console.log(`npm registry did not return ${pkg.name}@${pkg.version} yet; retrying (${attempt}/12).`);
+              await sleep(10000);
+            }
           }
           NODE
 
