@@ -35,7 +35,8 @@
     "plugin:inspect": "plugin-inspector check --config plugin-inspector.config.json --no-openclaw",
     "plugin:inspect:runtime": "plugin-inspector check --config plugin-inspector.config.json --no-openclaw --runtime --mock-sdk --allow-execute",
     "pack:check": "npm pack --dry-run",
-    "preflight": "npm run check:runtime && npm run plugin:inspect && npm run plugin:inspect:runtime && npm run pack:check"
+    "preflight": "npm run check:runtime && npm run plugin:inspect && npm run plugin:inspect:runtime && npm run pack:check",
+    "release:prepare": "node scripts/prepare-release.mjs"
   },
   "keywords": [
     "openclaw",
