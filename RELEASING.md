@@ -18,10 +18,10 @@ Publishing is intentionally tied to a published GitHub Release. Pushing commits,
    npm run release:prepare -- X.Y.Z
    ```
 
-3. Push the release commit and tag:
+3. Push the release branch you created and the tag:
 
    ```bash
-   git push origin main --follow-tags
+   git push --set-upstream origin HEAD --follow-tags
    ```
 
 4. Create and publish a GitHub Release for tag `vX.Y.Z`.

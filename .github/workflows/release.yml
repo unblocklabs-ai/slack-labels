@@ -15,7 +15,6 @@ jobs:
     env:
       PACKAGE_NAME: "@unblocklabs/slack-labels"
       CLAWHUB_OWNER: "unblocklabs"
-      CLAWHUB_CONFIG_PATH: "${{ runner.temp }}/clawhub-config.json"
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout release tag
@@ -84,6 +83,9 @@ jobs:
           PACK_JSON="$(npm pack --json --ignore-scripts)"
           TARBALL="$(node --input-type=module -e 'const data = JSON.parse(process.argv[1]); console.log(data[0].filename)' "$PACK_JSON")"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Configure ClawHub
+        run: echo "CLAWHUB_CONFIG_PATH=$RUNNER_TEMP/clawhub-config.json" >> "$GITHUB_ENV"
 
       - name: Authenticate to ClawHub
         run: |
