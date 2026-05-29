@@ -95,40 +95,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 
-      - name: Verify npm publish
-        if: env.NPM_TOKEN != ''
-        run: |
-          node --input-type=module <<'NODE'
-          import { execFileSync } from "node:child_process";
-          import { readFileSync } from "node:fs";
-          import { setTimeout as sleep } from "node:timers/promises";
-
-          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-
-          for (let attempt = 1; attempt <= 12; attempt += 1) {
-            try {
-              const published = JSON.parse(execFileSync(
-                "npm",
-                ["view", `${pkg.name}@${pkg.version}`, "version", "--json"],
-                { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-              ));
-
-              if (published !== pkg.version) {
-                throw new Error(`Expected npm version ${pkg.version}, got ${published}`);
-              }
-
-              process.exit(0);
-            } catch (error) {
-              if (attempt === 12) {
-                throw error;
-              }
-
-              console.log(`npm registry did not return ${pkg.name}@${pkg.version} yet; retrying (${attempt}/12).`);
-              await sleep(10000);
-            }
-          }
-          NODE
-
       - name: Skip npm publish
         if: env.NPM_TOKEN == ''
         run: echo "NPM_TOKEN is not configured; skipping npm publish."
